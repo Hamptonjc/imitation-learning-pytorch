@@ -1,0 +1,11 @@
+# Specify filepatterns you want git to ignore.
+
+imitation_data
+
+__pycache__
+
+IL_Carla_Inference.py
+
+training_logs
+
+model_checkpoints

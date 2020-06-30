@@ -1,0 +1,19 @@
+version: '2.3'
+
+services:
+  cil-net:
+    build:
+      context: ./../
+      dockerfile: ./docker/Dockerfile
+      shm_size: '12gb'
+    image: cil-net-image:1.0
+    runtime: nvidia
+    shm_size: '12gb'
+    volumes:
+      - ./../imitation_data:/workspace/imitation_data   
+    stdin_open: true
+    tty: true
+    command: /bin/bash
+
+volumes:
+  imitation_data:

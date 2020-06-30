@@ -1,0 +1,4 @@
+h5py
+kornia==0.3.0
+pytorch-lightning
+scikit-image==0.16.2
