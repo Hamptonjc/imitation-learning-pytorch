@@ -7,3 +7,5 @@ IL_Carla_Inference.py
 training_logs
 
 model_checkpoints
+
+data-and-checkpoints
