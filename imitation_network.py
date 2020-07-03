@@ -164,14 +164,14 @@ class ImitationNetwork(pl.LightningModule):
 
 	def train_dataloader(self):
 		print("Preparing training data...")
-		self.train_dataset = imitation_data.ImitationDataset(data_dir=self.train_data_dir, data_cache_size=100)
+		self.train_dataset = imitation_data.ImitationDataset(data_dir=self.train_data_dir, data_cache_size=400)
 		print("Training dataset prepared!")
 		return DataLoader(self.train_dataset,batch_size=self.train_batch_size,
 			num_workers=4, shuffle=False, pin_memory=True, drop_last=True)
 
 	def val_dataloader(self):
 		print("Preparing validation data...")
-		self.val_dataset = imitation_data.ImitationDataset(data_dir=self.val_data_dir, data_cache_size=100)
+		self.val_dataset = imitation_data.ImitationDataset(data_dir=self.val_data_dir, data_cache_size=400)
 		print("validation dataset prepared!")
 		mp.set_start_method('spawn', force=True)
 		return DataLoader(self.val_dataset,batch_size=self.train_batch_size,

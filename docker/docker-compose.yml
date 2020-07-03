@@ -5,10 +5,10 @@ services:
     build:
       context: ./../../
       dockerfile: ./imitation-learning-pytorch/docker/Dockerfile
-      shm_size: '12gb'
+      shm_size: '40gb'
     image: cil-net-image:1.0
     runtime: nvidia
-    shm_size: '12gb'
+    shm_size: '40gb'
     volumes:
       - ./data-and-checkpoints:/workspace/data-and-checkpoints
     stdin_open: true
