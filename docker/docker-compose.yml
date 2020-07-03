@@ -3,8 +3,8 @@ version: '2.3'
 services:
   cil-net:
     build:
-      context: ./../../
-      dockerfile: ./imitation-learning-pytorch/docker/Dockerfile
+      context: ./../
+      dockerfile: ./docker/Dockerfile
       shm_size: '40gb'
     image: cil-net-image:1.0
     runtime: nvidia
