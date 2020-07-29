@@ -7,6 +7,7 @@ June 2020
 # Imports
 import os
 import torch
+import argparse
 import torch.nn as nn
 import imitation_data
 import pytorch_lightning as pl
@@ -17,7 +18,9 @@ from torch.utils.data import DataLoader
 
 class ImitationNetwork(pl.LightningModule):
 
-	def __init__(self, hparams, train_data_dir, val_data_dir):
+	def __init__(self, data_cache_size=100, hparams=argparse.Namespace(
+		**{'learning_rate':1,'train_batch_size': 1, 'val_batch_size': 1}),
+		train_data_dir=None, val_data_dir=None):
 		super().__init__()
 		torch.cuda.empty_cache()
 		self.train_data_dir = train_data_dir
@@ -25,8 +28,9 @@ class ImitationNetwork(pl.LightningModule):
 		self.learning_rate = hparams.learning_rate
 		self.train_batch_size = hparams.train_batch_size
 		self.val_batch_size = hparams.val_batch_size
+		self.data_cache_size = data_cache_size
 
-		#layers
+		"""layers"""
 		self.imageModule = nn.Sequential(*self.get_image_module())
 		self.measurementModule = nn.Sequential(*self.get_measurement_module())
 		self.jointSensoryModule = nn.Sequential(*self.get_joint_sensory_module())
@@ -34,8 +38,22 @@ class ImitationNetwork(pl.LightningModule):
 		self.left_branch = nn.Sequential(*self.get_branch_module())
 		self.right_branch = nn.Sequential(*self.get_branch_module())
 		self.straight_branch = nn.Sequential(*self.get_branch_module())
-		self.general_branch = nn.Sequential(*self.get_branch_module())
+		#self.speed_branch = nn.Sequential(*self.get_branch_module())
+		self.module_list = [self.imageModule, self.measurementModule,\
+		self.jointSensoryModule, self.follow_lane_branch, self.left_branch,\
+		self.right_branch, self.straight_branch]
+		
+		"""Initialize weights with xavier initialization"""
+		for module in self.module_list:
+			module.apply(self.init_weights)
 
+	def init_weights(self, m):
+		if type(m) == nn.Linear:
+			torch.nn.init.xavier_uniform(m.weight)
+			m.bias.data.fill_(0.1)
+
+	def fc(self, in_features, out_features):
+		return nn.Linear(in_features, out_features, bias=True)
 
 	def convBlock(self, input_channels, output_channels, kernel_size, stride, flatten_output=False):
 		conv = nn.Conv2d(input_channels, output_channels, kernel_size, stride)
@@ -49,7 +67,7 @@ class ImitationNetwork(pl.LightningModule):
 			return [conv, bn, dropout, relu]
 
 	def fcBlock(self, in_features, out_features):
-		fc = nn.Linear(in_features, out_features)
+		fc = self.fc(in_features, out_features)
 		dropout = nn.Dropout(p=0.5, inplace=True)
 		relu = nn.ReLU()
 		return [fc, dropout, relu]
@@ -80,7 +98,12 @@ class ImitationNetwork(pl.LightningModule):
 		return self.fcBlock(640, 512)
 
 	def get_branch_module(self):
-		return self.fcBlock(512, 2)
+		branchModule = []
+		branchModule.extend(
+			self.fcBlock(512, 256) +\
+			self.fcBlock(256, 256) +\
+			[self.fc(256,3)]) # 3: steer angle, throttle, brake
+		return branchModule
 
 	def gated_branch_function(self, j_batch, control_batch):
 		batch_output = []
@@ -104,10 +127,6 @@ class ImitationNetwork(pl.LightningModule):
 				with torch.cuda.stream(s):
 					output = self.straight_branch(j)
 					batch_output.append(output)
-			else:
-				with torch.cuda.stream(s):
-					output = self.general_branch(j)
-					batch_output.append(output)
 		torch.cuda.synchronize()
 		return torch.stack(batch_output)
 
@@ -130,13 +149,17 @@ class ImitationNetwork(pl.LightningModule):
 		output = self.gated_branch_function(j, control)
 		return output
 
-	def custom_loss(self, model_output, label, lamb=1):
-		s = model_output[:,0]
-		s_gt = label[:,0]
-		a = model_output[:,1]
-		a_gt = label[:,1]
-		loss = torch.abs(s - s_gt)**2 + lamb*torch.abs(a - a_gt)**2
-		return torch.mean(loss)
+	def custom_loss(self, model_output, label, lamb=0.5):
+		steer_angle = model_output[:,0]
+		steer_gt = label[:,0]
+		throttle = model_output[:,1]
+		throttle_gt = label[:,1]
+		brake = model_output[:,2]
+		brake_gt = label[:,2]
+		acc = throttle - brake
+		acc_gt = throttle_gt - brake_gt
+		loss = torch.norm(steer_angle - steer_gt)**2 + lamb*torch.norm(acc - acc_gt)**2
+		return torch.sum(loss)
 
 	def configure_optimizers(self):
 		optim = torch.optim.Adam(self.parameters())
@@ -146,14 +169,14 @@ class ImitationNetwork(pl.LightningModule):
 
 		input_data, label = train_batch
 		model_output = self.forward(input_data)
-		loss = self.custom_loss(model_output, label, lamb=1)
+		loss = self.custom_loss(model_output, label)
 		train_logs = {'training_loss': loss}
 		return {'loss': loss, 'log': train_logs}
 
 	def validation_step(self, val_batch, batch_idx):
 		input_data, label = val_batch
 		model_output = self.forward(input_data)		
-		loss = self.custom_loss(model_output, label, lamb=1)
+		loss = self.custom_loss(model_output, label)
 		val_logs = {'validation_loss': loss}
 		return {'val_loss': loss, 'log': val_logs}
 
@@ -164,33 +187,16 @@ class ImitationNetwork(pl.LightningModule):
 
 	def train_dataloader(self):
 		print("Preparing training data...")
-		self.train_dataset = imitation_data.ImitationDataset(data_dir=self.train_data_dir, data_cache_size=400)
+		self.train_dataset = imitation_data.ImitationDataset(data_dir=self.train_data_dir, sort_by_command=True, data_cache_size=self.data_cache_size)
 		print("Training dataset prepared!")
 		return DataLoader(self.train_dataset,batch_size=self.train_batch_size,
 			num_workers=4, shuffle=False, pin_memory=True, drop_last=True)
 
 	def val_dataloader(self):
 		print("Preparing validation data...")
-		self.val_dataset = imitation_data.ImitationDataset(data_dir=self.val_data_dir, data_cache_size=400)
+		self.val_dataset = imitation_data.ImitationDataset(data_dir=self.val_data_dir, data_cache_size=self.data_cache_size)
 		print("validation dataset prepared!")
 		mp.set_start_method('spawn', force=True)
 		return DataLoader(self.val_dataset,batch_size=self.train_batch_size,
 			num_workers=4, shuffle=False, pin_memory=True, drop_last=True)
-
-
-
-	
-
-
-
-
-
-
-
-
-
-
-
-
-
 

@@ -37,14 +37,14 @@ def main():
 	parser.add_argument(
 		'-t', '--train_data_dir',
 		type=str,
-		default="imitation_data/SeqTrain/",
-		help="path to training data. Default == imitation_data/SeqTrain/")
+		default="data-and-checkpoints/imitation_data/SeqTrain/",
+		help="path to training data. Default == data-and-checkpoints/imitation_data/SeqTrain/")
 
 	parser.add_argument(
 		'-v', '--val_data_dir',
 		type=str,
-		default="imitation_data/SeqVal/",
-		help="path to validation data. Default == imitation_data/SeqVal/")
+		default="data-and-checkpoints/imitation_data/SeqVal/",
+		help="path to validation data. Default == data-and-checkpoints/imitation_data/SeqVal/")
 
 	parser.add_argument(
 		'-g', '--gpus',
@@ -66,8 +66,8 @@ def main():
 	parser.add_argument(
 		'-ch', '--checkpoint_callback',
 		type=bool,
-		default=False,
-		help="Save checkpoints of network. Default = False")
+		default=True,
+		help="Save checkpoints of network. Default = True")
 
 	parser.add_argument(
 		'-fc', '--from_checkpoint',
@@ -92,6 +92,13 @@ def main():
 		type=bool,
 		default=False,
 		help="Enable profiler. Default = False")
+
+	parser.add_argument(
+		'-dc', '--data_cache_size',
+		type=int,
+		default=100,
+		help="Number of H5 files to be loaded at once in memory. Since there is training and validation datasets, size will be doubled. Default=100")
+	
 	args = parser.parse_args()
 
 	hparams = argparse.Namespace(**{'learning_rate':args.learning_rate,
@@ -101,11 +108,12 @@ def main():
 	""" Setup Network """
 
 	checkpoint_callback = ModelCheckpoint(
-		filepath='model_checkpoints/{epoch}-{val_loss:.2f}',
+		filepath='data-and-checkpoints/model_checkpoints/{epoch}-{val_loss:.2f}',
 		save_last=True,
 		monitor='val_loss')
 
 	network = ImitationNetwork(
+		data_cache_size = args.data_cache_size,
 		hparams=hparams,
 		train_data_dir=args.train_data_dir,
 		val_data_dir=args.val_data_dir)

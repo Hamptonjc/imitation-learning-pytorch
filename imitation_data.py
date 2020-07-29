@@ -21,8 +21,9 @@ import torchvision.transforms.functional as F
 
 
 class ImitationDataset(data.Dataset):
-	def __init__(self, data_dir, data_cache_size = 5):
+	def __init__(self, data_dir, sort_by_command=False, data_cache_size = 5):
 		super().__init__()
+		self.sort_by_command = sort_by_command
 		self.data_info = []
 		self.data_cache = {}
 		self.data_dir = data_dir
@@ -52,7 +53,7 @@ class ImitationDataset(data.Dataset):
 		image = self.imageTransform(data_point[0]).type(torch.FloatTensor)
 		label = self.labelTransform(data_point[1]).type(torch.FloatTensor)
 		input_data = [image, label[10], label[24]] # [img, speed, command]
-		gt_action = torch.stack([label[0], label[1] - label[2]]) # [steer angle, gas - brake]
+		gt_action = torch.stack([label[0], label[1], label[2]]) # [steer angle, gas, brake]
 		return input_data, gt_action
 
 	def __len__(self):
@@ -60,15 +61,30 @@ class ImitationDataset(data.Dataset):
 
 	def get_data_info(self, file_names):
 		"""Walks through all h5 files and adds info of each data_point to data_info list"""
-		dataset_idx = 0
-		for file in tqdm(file_names, 'Getting data info'):
-			try:
-				with h5py.File(file,'r') as h5_file:
-					for file_idx, data_point in enumerate(h5_file["rgb"]):
-						self.data_info.append([dataset_idx, file_idx, file])
-						dataset_idx += 1
-			except:
-				pass
+		if self.sort_by_command:
+			dataset_idx = 0
+			for file in tqdm(file_names, 'Getting data info'):
+				try:
+					with h5py.File(file,'r') as h5_file:
+						for file_idx, data_point in enumerate(h5_file["targets"]):
+							self.data_info.append([dataset_idx, file_idx, file, data_point[24]])
+							dataset_idx += 1
+				except:
+					pass
+			self.data_info = sorted(self.data_info, key = lambda x: x[3])
+			for dataset_idx, data_point in enumerate(self.data_info):
+				data_point[0] = dataset_idx
+
+		else:
+			dataset_idx = 0
+			for file in tqdm(file_names, 'Getting data info'):
+				try:
+					with h5py.File(file,'r') as h5_file:
+						for file_idx, data_point in enumerate(h5_file["targets"]):
+							self.data_info.append([dataset_idx, file_idx, file])
+							dataset_idx += 1
+				except:
+					pass
 
 	def get_data_point_info(self, data_info, index):
 		"""Gets data point info [dataset_idx, file_idx, file_name] from data_info list"""
@@ -115,7 +131,6 @@ class RandomContrast:
 		contrast_factor = random.uniform(0, 2)
 		return np.array(F.adjust_contrast(Image.fromarray(imagearr), contrast_factor))
 
-
 class RandomBrightness:
 	"""
 	applies random adjustment to image's brightness
@@ -123,7 +138,6 @@ class RandomBrightness:
 	def __call__(self, imagearr):
 		brightness_factor = random.uniform(0, 2)
 		return np.array(F.adjust_brightness(Image.fromarray(imagearr), brightness_factor))
-
 
 class RandomGaussianBlur:
 	"""
@@ -138,7 +152,6 @@ class RandomGaussianBlur:
 		image = gaussian_blur2d(image, random_kernel, random_sigma)
 		return kornia.tensor_to_image(image)
 
-
 class RandomSaltPepperNoise:
 	"""
 	applies random salt and pepper noise to image
@@ -147,16 +160,12 @@ class RandomSaltPepperNoise:
 		random_prob = random.random()
 		return random_noise(image, mode='s&p', amount=random_prob)
 
-
-
-
 class RandomGaussianNoise:
 	"""
 	applies random salt and pepper noise to image
 	"""
 	def __call__(self, image):
 		return random_noise(image, mode='gaussian')
-
 
 class RandomReigonDropout:
 	""" Masks out a random set of squares in the image """
