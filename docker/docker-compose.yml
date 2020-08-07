@@ -5,18 +5,16 @@ services:
     build:
       context: ./../
       dockerfile: ./docker/Dockerfile
-      shm_size: '12gb' #40 on aws
+      shm_size: '12gb'
     image: cil-net-image:1.0
     runtime: nvidia
-    shm_size: '12gb' #40 on aws
+    shm_size: '12gb' 
     volumes:
       - ./../data-and-checkpoints:/workspace/data-and-checkpoints
       - ./../training_logs:/workspace/training_logs
     stdin_open: true
     tty: true
     command: /bin/bash
-    ports:
-      - 5001:6006 #Tensorboard port
 volumes:
   data-and-checkpoints:
   training_logs:
