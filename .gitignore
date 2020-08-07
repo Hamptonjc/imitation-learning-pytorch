@@ -1,13 +1,5 @@
 # Specify filepatterns you want git to ignore.
 
-SeqTrain
-
-SeqVal
-
-model_checkpoints/.
-
-training_logs
-
 _benchmarks_results
 
 __pycache__
