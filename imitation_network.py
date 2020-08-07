@@ -18,7 +18,7 @@ from torch.utils.data import DataLoader
 
 class ImitationNetwork(pl.LightningModule):
 
-	def __init__(self, data_cache_size=100, hparams=argparse.Namespace(
+	def __init__(self, data_cache_size=100, lamb=0.5, hparams=argparse.Namespace(
 		**{'learning_rate':1,'train_batch_size': 1, 'val_batch_size': 1}),
 		train_data_dir=None, val_data_dir=None):
 		super().__init__()
@@ -29,6 +29,7 @@ class ImitationNetwork(pl.LightningModule):
 		self.train_batch_size = hparams.train_batch_size
 		self.val_batch_size = hparams.val_batch_size
 		self.data_cache_size = data_cache_size
+		self.lamb = lamb
 
 		"""layers"""
 		self.imageModule = nn.Sequential(*self.get_image_module())
@@ -38,7 +39,6 @@ class ImitationNetwork(pl.LightningModule):
 		self.left_branch = nn.Sequential(*self.get_branch_module())
 		self.right_branch = nn.Sequential(*self.get_branch_module())
 		self.straight_branch = nn.Sequential(*self.get_branch_module())
-		#self.speed_branch = nn.Sequential(*self.get_branch_module())
 		self.module_list = [self.imageModule, self.measurementModule,\
 		self.jointSensoryModule, self.follow_lane_branch, self.left_branch,\
 		self.right_branch, self.straight_branch]
@@ -149,7 +149,7 @@ class ImitationNetwork(pl.LightningModule):
 		output = self.gated_branch_function(j, control)
 		return output
 
-	def custom_loss(self, model_output, label, lamb=0.5):
+	def custom_loss(self, model_output, label, lamb=self.lamb):
 		steer_angle = model_output[:,0]
 		steer_gt = label[:,0]
 		throttle = model_output[:,1]

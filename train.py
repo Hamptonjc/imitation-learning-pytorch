@@ -49,7 +49,7 @@ def main():
 	parser.add_argument(
 		'-g', '--gpus',
 		default=1,
-		help="Number of GPUs. Default == 1, set to None for CPU.")
+		help="Number of GPUs. Default == 1.")
 
 	parser.add_argument(
 		'-n', '--run_name',
@@ -79,7 +79,7 @@ def main():
 		'-cp', '--checkpoint_path',
 		type=str,
 		default=None,
-		help="path to checkpoint to begin training with. Default = None")
+		help="path to checkpoint to resume training with. Default = None")
 
 	parser.add_argument(
 		'-es', '--early_stop_callback',
@@ -98,7 +98,13 @@ def main():
 		type=int,
 		default=100,
 		help="Number of H5 files to be loaded at once in memory. Since there is training and validation datasets, size will be doubled. Default=100")
-	
+
+	parser.add_argument(
+		'-l', '--loss_lambda',
+		type=float,
+		default=0.5,
+		help="Value of lambda in loss function.")
+
 	args = parser.parse_args()
 
 	hparams = argparse.Namespace(**{'learning_rate':args.learning_rate,
@@ -114,6 +120,7 @@ def main():
 
 	network = ImitationNetwork(
 		data_cache_size = args.data_cache_size,
+		lamb = args.loss_lambda,
 		hparams=hparams,
 		train_data_dir=args.train_data_dir,
 		val_data_dir=args.val_data_dir)

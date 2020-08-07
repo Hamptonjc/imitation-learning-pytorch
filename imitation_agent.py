@@ -24,8 +24,6 @@ class ImitationAgent(Agent):
 			'train_batch_size': 1, 'val_batch_size': 1})
 		self.cil_net = ImitationNetwork.load_from_checkpoint('./data-and-checkpoints/model_checkpoints/last.ckpt')
 		self.cil_net.freeze()
-		# self.checkpoint = torch.load('./data-and-checkpoints/model_checkpoints/last.ckpt', map_location=lambda storage, loc: storage)
-		# self.cil_net = self.cil_net.load_state_dict(self.checkpoint['state_dict'])
 		self.input_image_size = (200, 88)
 
 	def run_step(self, measurements, sensor_data, directions, target):
@@ -34,7 +32,7 @@ class ImitationAgent(Agent):
 		return control
 
 	def compute_action(self, rgb_image, speed, direction=None):
-		rgb_image = rgb_image#[self.image_cut[0]:self.image_cut[1], :]
+		rgb_image = rgb_image #[self.image_cut[0]:self.image_cut[1], :]
 		rgb_image = cv2.cvtColor(rgb_image, cv2.COLOR_BGR2RGB)
 		image_input = np.array(Image.fromarray(rgb_image).resize(size=self.input_image_size))
 		#image_input = image_input.astype(np.float32)
@@ -66,7 +64,6 @@ class ImitationAgent(Agent):
 		input_data = [torch.tensor(image_input).unsqueeze(dim=0),
 		torch.tensor(speed).unsqueeze(dim=0), torch.tensor(direction).unsqueeze(dim=0)]
 		output = self.cil_net(input_data)
-		logging.info("network output:", output)
 		steer = output[0][0]
 		acc = output[0][1]
 		brake = output[0][2]
