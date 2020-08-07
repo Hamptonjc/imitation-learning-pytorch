@@ -1,0 +1,4 @@
+*
+!.gitignore
+!imitation_data
+!model_checkpoints
