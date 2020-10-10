@@ -22,6 +22,8 @@ Note, the Docker container requires Nvidia Docker runtime.
 - Specify network checkpoint in Agent class init method.
 - May need to rewrite certain Carla imports.
 
+.ckpt files for trained network can be downloaded [here](https://www.dropbox.com/sh/1xyrk72jba6vzrt/AACeWiS5SVmLJ_cXt7NS1oama?dl=0).
+
 
 ## Future Work
 
